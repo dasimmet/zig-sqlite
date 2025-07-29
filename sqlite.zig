@@ -704,7 +704,7 @@ pub const Db = struct {
             user_ctx,
             null, // xFunc
             struct {
-                fn xStep(ctx: ?*c.sqlite3_context, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.C) void {
+                fn xStep(ctx: ?*c.sqlite3_context, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.c) void {
                     debug.assert(argc == real_args_len);
 
                     const sqlite_args = argv[0..real_args_len];
@@ -728,7 +728,7 @@ pub const Db = struct {
                 }
             }.xStep,
             struct {
-                fn xFinal(ctx: ?*c.sqlite3_context) callconv(.C) void {
+                fn xFinal(ctx: ?*c.sqlite3_context) callconv(.c) void {
                     var args: std.meta.ArgsTuple(@TypeOf(finalize_func)) = undefined;
 
                     // Pass the function context
@@ -780,7 +780,7 @@ pub const Db = struct {
             flags,
             null,
             struct {
-                fn xFunc(ctx: ?*c.sqlite3_context, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.C) void {
+                fn xFunc(ctx: ?*c.sqlite3_context, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.c) void {
                     debug.assert(argc == fn_info.params.len);
 
                     const sqlite_args = argv[0..fn_info.params.len];

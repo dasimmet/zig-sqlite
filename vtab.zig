@@ -717,7 +717,7 @@ pub fn VirtualTable(
             return try State.init(module_context, table);
         }
 
-        fn xCreate(db: ?*c.sqlite3, module_context_ptr: ?*anyopaque, argc: c_int, argv: [*c]const [*c]const u8, vtab: [*c][*c]c.sqlite3_vtab, err_str: [*c][*c]const u8) callconv(.C) c_int {
+        fn xCreate(db: ?*c.sqlite3, module_context_ptr: ?*anyopaque, argc: c_int, argv: [*c]const [*c]const u8, vtab: [*c][*c]c.sqlite3_vtab, err_str: [*c][*c]const u8) callconv(.c) c_int {
             _ = db;
             _ = module_context_ptr;
             _ = argc;
@@ -730,7 +730,7 @@ pub fn VirtualTable(
             return c.SQLITE_ERROR;
         }
 
-        fn xConnect(db: ?*c.sqlite3, module_context_ptr: ?*anyopaque, argc: c_int, argv: [*c]const [*c]const u8, vtab: [*c][*c]c.sqlite3_vtab, err_str: [*c][*c]u8) callconv(.C) c_int {
+        fn xConnect(db: ?*c.sqlite3, module_context_ptr: ?*anyopaque, argc: c_int, argv: [*c]const [*c]const u8, vtab: [*c][*c]c.sqlite3_vtab, err_str: [*c][*c]u8) callconv(.c) c_int {
             const module_context = getModuleContext(module_context_ptr);
 
             var arena = heap.ArenaAllocator.init(module_context.allocator);
@@ -761,7 +761,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xBestIndex(vtab: [*c]c.sqlite3_vtab, index_info_ptr: [*c]c.sqlite3_index_info) callconv(.C) c_int {
+        fn xBestIndex(vtab: [*c]c.sqlite3_vtab, index_info_ptr: [*c]c.sqlite3_index_info) callconv(.c) c_int {
             const index_info: *c.sqlite3_index_info = index_info_ptr orelse unreachable;
 
             //
@@ -788,7 +788,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xDisconnect(vtab: [*c]c.sqlite3_vtab) callconv(.C) c_int {
+        fn xDisconnect(vtab: [*c]c.sqlite3_vtab) callconv(.c) c_int {
             const nullable_state: ?*State = @fieldParentPtr("vtab", vtab);
             const state = nullable_state orelse unreachable;
 
@@ -797,7 +797,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xDestroy(vtab: [*c]c.sqlite3_vtab) callconv(.C) c_int {
+        fn xDestroy(vtab: [*c]c.sqlite3_vtab) callconv(.c) c_int {
             _ = vtab;
 
             debug.print("xDestroy\n", .{});
@@ -805,7 +805,7 @@ pub fn VirtualTable(
             return c.SQLITE_ERROR;
         }
 
-        fn xOpen(vtab: [*c]c.sqlite3_vtab, vtab_cursor: [*c][*c]c.sqlite3_vtab_cursor) callconv(.C) c_int {
+        fn xOpen(vtab: [*c]c.sqlite3_vtab, vtab_cursor: [*c][*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
             const nullable_state: ?*State = @fieldParentPtr("vtab", vtab);
             const state = nullable_state orelse unreachable;
 
@@ -818,7 +818,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xClose(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.C) c_int {
+        fn xClose(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
 
@@ -827,7 +827,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xEof(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.C) c_int {
+        fn xEof(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
             const cursor = cursor_state.cursor;
@@ -865,7 +865,7 @@ pub fn VirtualTable(
             return res;
         }
 
-        fn xFilter(vtab_cursor: [*c]c.sqlite3_vtab_cursor, idx_num: c_int, idx_str: [*c]const u8, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.C) c_int {
+        fn xFilter(vtab_cursor: [*c]c.sqlite3_vtab_cursor, idx_num: c_int, idx_str: [*c]const u8, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
             const cursor = cursor_state.cursor;
@@ -891,7 +891,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xNext(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.C) c_int {
+        fn xNext(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
             const cursor = cursor_state.cursor;
@@ -910,7 +910,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xColumn(vtab_cursor: [*c]c.sqlite3_vtab_cursor, ctx: ?*c.sqlite3_context, n: c_int) callconv(.C) c_int {
+        fn xColumn(vtab_cursor: [*c]c.sqlite3_vtab_cursor, ctx: ?*c.sqlite3_context, n: c_int) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
             const cursor = cursor_state.cursor;
@@ -954,7 +954,7 @@ pub fn VirtualTable(
             return c.SQLITE_OK;
         }
 
-        fn xRowid(vtab_cursor: [*c]c.sqlite3_vtab_cursor, row_id_ptr: [*c]c.sqlite3_int64) callconv(.C) c_int {
+        fn xRowid(vtab_cursor: [*c]c.sqlite3_vtab_cursor, row_id_ptr: [*c]c.sqlite3_int64) callconv(.c) c_int {
             const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
             const cursor_state = nullable_cursor_state orelse unreachable;
             const cursor = cursor_state.cursor;
