@@ -3390,7 +3390,7 @@ const MyData = struct {
     const BaseType = []const u8;
 
     pub fn bindField(self: MyData, allocator: mem.Allocator) !BaseType {
-        return try std.fmt.allocPrint(allocator, "{}", .{std.fmt.fmtSliceHexLower(&self.data)});
+        return try std.fmt.allocPrint(allocator, "{x}", .{&self.data});
     }
 
     pub fn readField(alloc: mem.Allocator, value: BaseType) !MyData {

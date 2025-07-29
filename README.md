@@ -256,7 +256,7 @@ const row = try stmt.one(
     .{ .name = "Vincent" },
 );
 if (row) |id| {
-    std.log.debug("id: {s}", .{std.fmt.fmtSliceHexLower(&id)});
+    std.log.debug("id: {x}", .{&id});
 }
 ```
 
