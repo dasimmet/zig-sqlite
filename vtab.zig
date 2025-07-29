@@ -1297,7 +1297,7 @@ test "parse module arguments" {
 
     const args = try allocator.alloc([*c]const u8, 20);
     for (args, 0..) |*arg, i| {
-        const tmp = try fmt.allocPrintZ(allocator, "arg={d}", .{i});
+        const tmp = try fmt.allocPrintSentinel(allocator, "arg={d}", .{i}, 0);
         arg.* = @ptrCast(tmp);
     }
 
