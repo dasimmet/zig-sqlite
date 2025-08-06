@@ -132,11 +132,21 @@ pub const Blob = struct {
         }
     }
 
-    pub const Reader = io.Reader(*Self, errors.Error, read);
+    pub const Reader = struct {
+        context: Self,
+    };
+    // io.Reader(*Self, errors.Error, read);
 
     /// reader returns a io.Reader.
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
+    pub fn reader(self: *Self) io.Reader {
+        return .{
+            .context = @ptrCast(self),
+            .readFn = readFn,
+        };
+    }
+
+    fn readFn(self: *const anyopaque, buffer: []u8) Error!usize {
+        return @as(*Self, @alignCast(@ptrCast(self))).read(buffer);
     }
 
     fn read(self: *Self, buffer: []u8) Error!usize {
@@ -164,12 +174,37 @@ pub const Blob = struct {
         return tmp_buffer.len;
     }
 
-    pub const Writer = io.Writer(*Self, Error, write);
-
     /// writer returns a io.Writer.
     pub fn writer(self: *Self) Writer {
-        return .{ .context = self };
+        // (*Self, Error, write)
+        return @as(Writer, .{ .context = self, .interface = .{
+            .buffer = @alignCast(@ptrCast(self)),
+            .vtable = &.{
+                .drain = &Writer.VTable.drain,
+            },
+        } });
     }
+
+    pub const Writer = struct {
+        context: *Self,
+        interface: io.Writer,
+
+        pub const VTable = struct {
+            fn drain(w: *io.Writer, data: []const []const u8, splat: usize) io.Writer.Error!usize {
+                var self: Self = @ptrCast(w.buffer);
+                var itt: usize = 0;
+                for (data) |d| {
+                    for (d) |dd| {
+                        const selfarr: []u8 = @ptrCast(&self);
+                        selfarr[itt] = dd;
+                        itt += 1;
+                    }
+                }
+                _ = splat;
+                return 0;
+            }
+        };
+    };
 
     fn write(self: *Self, data: []const u8) Error!usize {
         const result = c.sqlite3_blob_write(
@@ -261,14 +296,14 @@ pub const Diagnostics = struct {
     message: []const u8 = "",
     err: ?DetailedError = null,
 
-    pub fn format(self: @This(), comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(self: @This(), writer: anytype) !void {
         if (self.err) |err| {
             if (self.message.len > 0) {
-                _ = try writer.print("{{message: {s}, detailed error: {s}}}", .{ self.message, err });
+                _ = try writer.print("{{message: {s}, detailed error: {f}}}", .{ self.message, err });
                 return;
             }
 
-            _ = try err.format(fmt, options, writer);
+            _ = try err.format(writer);
             return;
         }
 
@@ -955,7 +990,7 @@ pub const Savepoint = struct {
 
         // From DynamiStatement
         EmptyQuery,
-    } || std.fmt.AllocPrintError || Error;
+    } || std.mem.Allocator.Error || Error;
 
     fn init(db: *Db, name: []const u8) InitError!Self {
         if (name.len < 1) return error.SavepointNameTooShort;
@@ -1589,7 +1624,7 @@ pub const DynamicStatement = struct {
         const result = c.sqlite3_finalize(self.stmt);
         if (result != c.SQLITE_OK) {
             const detailed_error = getLastDetailedErrorFromDb(self.db);
-            logger.err("unable to finalize prepared statement, result: {}, detailed error: {}", .{ result, detailed_error });
+            logger.err("unable to finalize prepared statement, result: {}, detailed error: {f}", .{ result, detailed_error });
         }
     }
 
@@ -3120,7 +3155,7 @@ test "sqlite: blob open, reopen" {
 
     {
         // Write the first blob data
-        var blob_writer = blob.writer();
+        var blob_writer = blob.writer().interface;
         try blob_writer.writeAll(blob_data1);
         try blob_writer.writeAll(blob_data1);
 
