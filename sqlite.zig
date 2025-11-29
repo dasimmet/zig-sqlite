@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const build_options = @import("build_options");
 const debug = std.debug;
 const heap = std.heap;
-const io = std.io;
+const Io = std.Io;
 const mem = std.mem;
 const testing = std.testing;
 
@@ -132,11 +132,49 @@ pub const Blob = struct {
         }
     }
 
-    pub const Reader = io.GenericReader(*Self, errors.Error, read);
+    pub const Reader = struct {
+        context: *Self,
+        interface: Io.Reader,
+
+        pub fn stream(r: *Io.Reader, w: *Io.Writer, limit: Io.Limit) Io.Reader.StreamError!usize {
+            const self: *Reader = @fieldParentPtr("interface", r);
+            const limit_int = limit.toInt() orelse std.math.maxInt(usize);
+
+            if (limit_int <= r.buffer.len - r.end) {
+                const written = read(self.context, r.buffer[r.end..@min(limit_int, r.buffer.len - r.end)]) catch |err| switch (err) {
+                    else => return error.ReadFailed,
+                };
+                r.end += written;
+                return written;
+            }
+
+            var nwritten: usize = r.bufferedLen();
+            try w.writeAll(r.buffered());
+            while (nwritten < limit_int) {
+                r.end = 0;
+                const written = read(self.context, r.buffer[0..@min(limit_int, r.buffer.len)]) catch |err| switch (err) {
+                    else => return error.ReadFailed,
+                };
+                try w.writeAll(r.buffered());
+                nwritten += written;
+            }
+            return nwritten;
+        }
+    };
 
     /// reader returns a io.Reader.
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
+    pub fn reader(self: *Self, buffer: []u8) Reader {
+        return .{
+            .context = self,
+            .interface = .{
+                .seek = 0,
+                .end = 0,
+                .buffer = buffer,
+                .vtable = &.{
+                    .stream = Reader.stream,
+                },
+            },
+        };
     }
 
     fn read(self: *Self, buffer: []u8) Error!usize {
@@ -164,7 +202,40 @@ pub const Blob = struct {
         return tmp_buffer.len;
     }
 
-    pub const Writer = io.GenericWriter(*Self, Error, write);
+    pub const Writer = struct {
+        context: *Self,
+        interface: Io.Writer = .{
+            .buffer = &.{},
+            .vtable = &.{
+                .drain = drain,
+            },
+        },
+
+        fn drain(w: *Io.Writer, data: []const []const u8, splat: usize) Io.Writer.Error!usize {
+            const self: *Writer = @fieldParentPtr("interface", w);
+
+            var written: usize = 0;
+            while (w.buffered()[written..].len > 0) {
+                written += self.context.write(w.buffered()[written..]) catch |err| switch (err) {
+                    else => return error.WriteFailed,
+                };
+            }
+            w.end = 0;
+            for (data, 0..) |d, i| {
+                const msplat: usize = if (i == data.len - 1) splat else 1;
+                for (0..msplat) |_| {
+                    var chunk_written: usize = 0;
+                    while (chunk_written < d.len) {
+                        chunk_written += self.context.write(d[chunk_written..]) catch |err| switch (err) {
+                            else => return error.WriteFailed,
+                        };
+                    }
+                    written += d.len;
+                }
+            }
+            return written;
+        }
+    };
 
     /// writer returns a io.Writer.
     pub fn writer(self: *Self) Writer {
@@ -3121,13 +3192,14 @@ test "sqlite: blob open, reopen" {
     {
         // Write the first blob data
         var blob_writer = blob.writer();
-        try blob_writer.writeAll(blob_data1);
-        try blob_writer.writeAll(blob_data1);
+        try blob_writer.interface.writeAll(blob_data1);
+        try blob_writer.interface.writeAll(blob_data1);
 
         blob.reset();
 
-        var blob_reader = blob.reader();
-        const data = try blob_reader.readAllAlloc(allocator, 8192);
+        var blob_buf: [64]u8 = undefined;
+        var blob_reader = blob.reader(&blob_buf);
+        const data = try blob_reader.interface.allocRemaining(allocator, .limited(8192));
 
         try testing.expectEqualSlices(u8, blob_data1 ** 2, data);
     }
@@ -3138,13 +3210,14 @@ test "sqlite: blob open, reopen" {
     {
         // Write the second blob data
         var blob_writer = blob.writer();
-        try blob_writer.writeAll(blob_data2);
-        try blob_writer.writeAll(blob_data2);
+        try blob_writer.interface.writeAll(blob_data2);
+        try blob_writer.interface.writeAll(blob_data2);
 
         blob.reset();
 
-        var blob_reader = blob.reader();
-        const data = try blob_reader.readAllAlloc(allocator, 8192);
+        var blob_buf: [64]u8 = undefined;
+        var blob_reader = blob.reader(&blob_buf);
+        const data = try blob_reader.interface.allocRemaining(allocator, .limited(8192));
 
         try testing.expectEqualSlices(u8, blob_data2 ** 2, data);
     }
