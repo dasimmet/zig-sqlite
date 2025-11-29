@@ -368,13 +368,17 @@ const PreprocessStep = struct {
         const ps: *PreprocessStep = @fieldParentPtr("step", step);
         const owner = step.owner;
 
+        // TODO: probably Io will be provided in the future from somewhere
+        var threaded = std.Io.Threaded.init(owner.allocator);
+        defer threaded.deinit();
+
         const sqlite3_h = try ps.source.path(owner, "sqlite3.h").getPath3(owner, step).toString(owner.allocator);
         const sqlite3ext_h = try ps.source.path(owner, "sqlite3ext.h").getPath3(owner, step).toString(owner.allocator);
 
         const loadable_sqlite3_h = try ps.target.path(owner, "loadable-ext-sqlite3.h").getPath3(owner, step).toString(owner.allocator);
         const loadable_sqlite3ext_h = try ps.target.path(owner, "loadable-ext-sqlite3ext.h").getPath3(owner, step).toString(owner.allocator);
 
-        try Preprocessor.sqlite3(owner.allocator, sqlite3_h, loadable_sqlite3_h);
-        try Preprocessor.sqlite3ext(owner.allocator, sqlite3ext_h, loadable_sqlite3ext_h);
+        try Preprocessor.sqlite3(owner.allocator, threaded.io(), sqlite3_h, loadable_sqlite3_h);
+        try Preprocessor.sqlite3ext(owner.allocator, threaded.io(), sqlite3ext_h, loadable_sqlite3ext_h);
     }
 };
