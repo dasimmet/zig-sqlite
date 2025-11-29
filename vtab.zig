@@ -1070,7 +1070,7 @@ const TestVirtualTable = struct {
         _ = self;
         _ = diags;
 
-        var id_str_writer = builder.id_str_buffer.writer(builder.allocator);
+        var id_str_list = builder.id_str_buffer;
 
         var argv_index: i32 = 0;
         for (builder.constraints) |*constraint| {
@@ -1078,11 +1078,9 @@ const TestVirtualTable = struct {
                 argv_index += 1;
                 constraint.usage.argv_index = argv_index;
 
-                try id_str_writer.print("={d:<6}", .{constraint.column});
+                try id_str_list.print(builder.allocator, "={d:<6}", .{constraint.column});
             }
         }
-
-        //
 
         builder.id.str = try builder.id_str_buffer.toOwnedSlice(builder.allocator);
         builder.estimated_cost = 200;
