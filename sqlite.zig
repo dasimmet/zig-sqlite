@@ -1454,7 +1454,7 @@ pub fn Iterator(comptime Type: type) type {
                     },
                     inline .@"struct", .@"union" => |TI| {
                         if (TI.layout == .@"packed" and !@hasField(FieldType, "readField")) {
-                            const Backing = @TypeOf(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(FieldType) } });
+                            const Backing = @Int(.unsigned, @bitSizeOf(FieldType));
                             return @bitCast(self.readInt(Backing, i));
                         }
 
@@ -1685,7 +1685,7 @@ pub const DynamicStatement = struct {
                 },
                 .@"union" => |info| {
                     if (info.layout == .@"packed") {
-                        const Backing = @TypeOf(.{ .int = .{ .signedness = .unsigned, .bits = @bitSizeOf(FieldType) } });
+                        const Backing = @Int(.unsigned, @bitSizeOf(FieldType));
                         try self.bindField(Backing, options, field_name, i, @as(Backing, @bitCast(field)));
                         return;
                     }
@@ -3729,9 +3729,7 @@ test "sqlite: create aggregate function with no aggregate context" {
     var db = try getTestDb();
     defer db.deinit();
 
-    const clock = std.Io.Clock.boot;
-    const timestamp = clock.now(std.testing.io) catch std.Io.Timestamp.zero;
-    var rand = std.Random.DefaultPrng.init(@intCast(timestamp.toMilliseconds()));
+    var rand = std.Random.DefaultPrng.init(@intCast(std.testing.random_seed));
 
     // Create an aggregate function working with a MyContext
 
@@ -3792,9 +3790,7 @@ test "sqlite: create aggregate function with an aggregate context" {
     var db = try getTestDb();
     defer db.deinit();
 
-    const clock = std.Io.Clock.boot;
-    const timestamp = clock.now(std.testing.io) catch std.Io.Timestamp.zero;
-    var rand = std.Random.DefaultPrng.init(@intCast(timestamp.toMilliseconds()));
+    var rand = std.Random.DefaultPrng.init(@intCast(std.testing.random_seed));
 
     try db.createAggregateFunction(
         "mySum",
