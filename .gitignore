@@ -1,6 +1,7 @@
 /build_runner.zig
 /.zig-cache
 zig-out
+zig-pkg
 .zigmod
 deps.zig
 core.*

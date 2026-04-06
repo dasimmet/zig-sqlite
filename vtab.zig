@@ -764,10 +764,10 @@ pub fn VirtualTable(
         fn xBestIndex(vtab: [*c]c.sqlite3_vtab, index_info_ptr: [*c]c.sqlite3_index_info) callconv(.c) c_int {
             const index_info: *c.sqlite3_index_info = index_info_ptr orelse unreachable;
 
-            //
-
-            const nullable_state: ?*State = @fieldParentPtr("vtab", vtab);
-            const state = nullable_state orelse unreachable;
+            const state: *State = @fieldParentPtr(
+                "vtab",
+                @as(*c.sqlite3_vtab, @ptrCast(vtab)),
+            );
 
             var arena = heap.ArenaAllocator.init(state.module_context.allocator);
             defer arena.deinit();
@@ -789,9 +789,10 @@ pub fn VirtualTable(
         }
 
         fn xDisconnect(vtab: [*c]c.sqlite3_vtab) callconv(.c) c_int {
-            const nullable_state: ?*State = @fieldParentPtr("vtab", vtab);
-            const state = nullable_state orelse unreachable;
-
+            const state: *State = @fieldParentPtr(
+                "vtab",
+                @as(*c.sqlite3_vtab, @ptrCast(vtab)),
+            );
             state.deinit();
 
             return c.SQLITE_OK;
@@ -806,8 +807,10 @@ pub fn VirtualTable(
         }
 
         fn xOpen(vtab: [*c]c.sqlite3_vtab, vtab_cursor: [*c][*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
-            const nullable_state: ?*State = @fieldParentPtr("vtab", vtab);
-            const state = nullable_state orelse unreachable;
+            const state: *State = @fieldParentPtr(
+                "vtab",
+                @as(*c.sqlite3_vtab, @ptrCast(vtab)),
+            );
 
             const cursor_state = CursorState.init(state.module_context, state.table) catch |err| {
                 logger.err("unable to create cursor state, err: {}", .{err});
@@ -819,17 +822,20 @@ pub fn VirtualTable(
         }
 
         fn xClose(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
-
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             cursor_state.deinit();
 
             return c.SQLITE_OK;
         }
 
         fn xEof(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             const cursor = cursor_state.cursor;
 
             var arena = heap.ArenaAllocator.init(cursor_state.module_context.allocator);
@@ -866,8 +872,10 @@ pub fn VirtualTable(
         }
 
         fn xFilter(vtab_cursor: [*c]c.sqlite3_vtab_cursor, idx_num: c_int, idx_str: [*c]const u8, argc: c_int, argv: [*c]?*c.sqlite3_value) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             const cursor = cursor_state.cursor;
 
             var arena = heap.ArenaAllocator.init(cursor_state.module_context.allocator);
@@ -892,8 +900,10 @@ pub fn VirtualTable(
         }
 
         fn xNext(vtab_cursor: [*c]c.sqlite3_vtab_cursor) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             const cursor = cursor_state.cursor;
 
             var arena = heap.ArenaAllocator.init(cursor_state.module_context.allocator);
@@ -911,8 +921,10 @@ pub fn VirtualTable(
         }
 
         fn xColumn(vtab_cursor: [*c]c.sqlite3_vtab_cursor, ctx: ?*c.sqlite3_context, n: c_int) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             const cursor = cursor_state.cursor;
 
             var arena = heap.ArenaAllocator.init(cursor_state.module_context.allocator);
@@ -955,8 +967,10 @@ pub fn VirtualTable(
         }
 
         fn xRowid(vtab_cursor: [*c]c.sqlite3_vtab_cursor, row_id_ptr: [*c]c.sqlite3_int64) callconv(.c) c_int {
-            const nullable_cursor_state: ?*CursorState = @fieldParentPtr("vtab_cursor", vtab_cursor);
-            const cursor_state = nullable_cursor_state orelse unreachable;
+            const cursor_state: *CursorState = @fieldParentPtr(
+                "vtab_cursor",
+                @as(*c.sqlite3_vtab_cursor, @ptrCast(vtab_cursor)),
+            );
             const cursor = cursor_state.cursor;
 
             var arena = heap.ArenaAllocator.init(cursor_state.module_context.allocator);
@@ -1023,7 +1037,9 @@ const TestVirtualTable = struct {
             //
 
             const data = &[_][]const u8{
-                "Vincent", "José", "Michel",
+                "Vincent",
+                "José",
+                "Michel",
             };
 
             var rand = std.Random.DefaultPrng.init(204882485);

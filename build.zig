@@ -109,33 +109,58 @@ fn computeTestTargets(isNative: bool, ci: ?bool) ?[]const TestTarget {
     return null;
 }
 
+const SqliteC = enum { with, without };
+
 // This creates a SQLite static library from the SQLite dependency code.
-fn makeSQLiteLib(b: *std.Build, dep: *std.Build.Dependency, c_flags: []const []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, sqlite_c: enum { with, without }) *std.Build.Step.Compile {
+fn makeSQLiteLib(
+    b: *std.Build,
+    dep: *std.Build.Dependency,
+    c_flags: []const []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    sqlite_c: SqliteC,
+) *std.Build.Step.Compile {
+    return b.addLibrary(.{
+        .name = "sqlite",
+        .linkage = .dynamic,
+        .root_module = makeSQLiteMod(
+            b,
+            dep,
+            c_flags,
+            target,
+            optimize,
+            sqlite_c,
+        ),
+    });
+}
+
+fn makeSQLiteMod(
+    b: *std.Build,
+    dep: *std.Build.Dependency,
+    c_flags: []const []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    sqlite_c: SqliteC,
+) *std.Build.Module {
     const mod = b.addModule("lib-sqlite", .{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    const lib = b.addLibrary(.{
-        .name = "sqlite",
-        .linkage = .static,
-        .root_module = mod,
-    });
 
-    lib.root_module.addIncludePath(dep.path("."));
-    lib.root_module.addIncludePath(b.path("c"));
+    mod.addIncludePath(dep.path("."));
+    mod.addIncludePath(b.path("c"));
     if (sqlite_c == .with) {
-        lib.root_module.addCSourceFile(.{
+        mod.addCSourceFile(.{
             .file = dep.path("sqlite3.c"),
             .flags = c_flags,
         });
     }
-    lib.root_module.addCSourceFile(.{
+    mod.addCSourceFile(.{
         .file = b.path("c/workaround.c"),
         .flags = c_flags,
     });
-
-    return lib;
+    return mod;
 }
 
 pub fn build(b: *std.Build) !void {
@@ -157,7 +182,7 @@ pub fn build(b: *std.Build) !void {
 
     // Define C flags to use
 
-    var flags: std.ArrayList([]const u8) = .{};
+    var flags: std.ArrayList([]const u8) = .empty;
     defer flags.deinit(b.allocator);
     try flags.append(b.allocator, "-std=c99");
 
@@ -234,26 +259,27 @@ pub fn build(b: *std.Build) !void {
 
         const test_sqlite_lib = makeSQLiteLib(b, sqlite_dep, c_flags, cross_target, optimize, .with);
 
+        const tests_options = b.addOptions();
+        tests_options.addOption(bool, "in_memory", in_memory);
+        tests_options.addOption(?[]const u8, "dbfile", dbfile);
+
         const mod = b.addModule(test_name, .{
             .target = cross_target,
             .optimize = optimize,
             .root_source_file = b.path("sqlite.zig"),
             .single_threaded = test_target.single_threaded,
+            .imports = &.{
+                .{ .name = "build_options", .module = tests_options.createModule() },
+            },
         });
+        mod.addIncludePath(b.path("c"));
+        mod.addIncludePath(sqlite_dep.path("."));
+        mod.linkLibrary(test_sqlite_lib);
 
         const tests = b.addTest(.{
             .name = test_name,
             .root_module = mod,
         });
-        tests.root_module.addIncludePath(b.path("c"));
-        tests.root_module.addIncludePath(sqlite_dep.path("."));
-        tests.root_module.linkLibrary(test_sqlite_lib);
-
-        const tests_options = b.addOptions();
-        tests.root_module.addImport("build_options", tests_options.createModule());
-
-        tests_options.addOption(bool, "in_memory", in_memory);
-        tests_options.addOption(?[]const u8, "dbfile", dbfile);
 
         const run_tests = b.addRunArtifact(tests);
         test_step.dependOn(&run_tests.step);
@@ -374,6 +400,7 @@ const PreprocessStep = struct {
     fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) !void {
         const ps: *PreprocessStep = @fieldParentPtr("step", step);
         const owner = step.owner;
+        const io = owner.graph.io;
 
         const sqlite3_h = try ps.source.path(owner, "sqlite3.h").getPath3(owner, step).toString(owner.allocator);
         const sqlite3ext_h = try ps.source.path(owner, "sqlite3ext.h").getPath3(owner, step).toString(owner.allocator);
@@ -381,7 +408,7 @@ const PreprocessStep = struct {
         const loadable_sqlite3_h = try ps.target.path(owner, "loadable-ext-sqlite3.h").getPath3(owner, step).toString(owner.allocator);
         const loadable_sqlite3ext_h = try ps.target.path(owner, "loadable-ext-sqlite3ext.h").getPath3(owner, step).toString(owner.allocator);
 
-        try Preprocessor.sqlite3(owner.allocator, ps.io, sqlite3_h, loadable_sqlite3_h);
-        try Preprocessor.sqlite3ext(owner.allocator, ps.io, sqlite3ext_h, loadable_sqlite3ext_h);
+        try Preprocessor.sqlite3(io, owner.allocator, sqlite3_h, loadable_sqlite3_h);
+        try Preprocessor.sqlite3ext(io, owner.allocator, sqlite3ext_h, loadable_sqlite3ext_h);
     }
 };
