@@ -408,7 +408,7 @@ const PreprocessStep = struct {
         const loadable_sqlite3_h = try ps.target.path(owner, "loadable-ext-sqlite3.h").getPath3(owner, step).toString(owner.allocator);
         const loadable_sqlite3ext_h = try ps.target.path(owner, "loadable-ext-sqlite3ext.h").getPath3(owner, step).toString(owner.allocator);
 
-        try Preprocessor.sqlite3(io, owner.allocator, sqlite3_h, loadable_sqlite3_h);
-        try Preprocessor.sqlite3ext(io, owner.allocator, sqlite3ext_h, loadable_sqlite3ext_h);
+        try Preprocessor.sqlite3(owner.allocator, io, sqlite3_h, loadable_sqlite3_h);
+        try Preprocessor.sqlite3ext(owner.allocator, io, sqlite3ext_h, loadable_sqlite3ext_h);
     }
 };
